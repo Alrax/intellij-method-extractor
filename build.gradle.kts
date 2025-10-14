@@ -34,6 +34,9 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
 
+    // JSON serialization
+    implementation("com.google.code.gson:gson:2.11.0")
+
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
         create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
