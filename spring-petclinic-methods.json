@@ -1,0 +1,673 @@
+[
+  {
+    "name": "george",
+    "body": "{\n\t\tOwner george = new Owner();\n\t\tgeorge.setId(TEST_OWNER_ID);\n\t\tgeorge.setFirstName(\"George\");\n\t\tgeorge.setLastName(\"Franklin\");\n\t\tgeorge.setAddress(\"110 W. Liberty St.\");\n\t\tgeorge.setCity(\"Madison\");\n\t\tgeorge.setTelephone(\"6085551023\");\n\t\tPet max = new Pet();\n\t\tPetType dog = new PetType();\n\t\tdog.setName(\"dog\");\n\t\tmax.setType(dog);\n\t\tmax.setName(\"Max\");\n\t\tmax.setBirthDate(LocalDate.now());\n\t\tgeorge.addPet(max);\n\t\tmax.setId(1);\n\t\treturn george;\n\t}"
+  },
+  {
+    "name": "setup",
+    "body": "{\n\n\t\tOwner george = george();\n\t\tgiven(this.owners.findByLastNameStartingWith(eq(\"Franklin\"), any(Pageable.class)))\n\t\t\t.willReturn(new PageImpl<>(List.of(george)));\n\n\t\tgiven(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(george));\n\t\tVisit visit = new Visit();\n\t\tvisit.setDate(LocalDate.now());\n\t\tgeorge.getPet(\"Max\").getVisits().add(visit);\n\n\t}"
+  },
+  {
+    "name": "testInitCreationForm",
+    "body": "{\n\t\tmockMvc.perform(get(\"/owners/new\"))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(model().attributeExists(\"owner\"))\n\t\t\t.andExpect(view().name(\"owners/createOrUpdateOwnerForm\"));\n\t}"
+  },
+  {
+    "name": "testProcessCreationFormSuccess",
+    "body": "{\n\t\tmockMvc\n\t\t\t.perform(post(\"/owners/new\").param(\"firstName\", \"Joe\")\n\t\t\t\t.param(\"lastName\", \"Bloggs\")\n\t\t\t\t.param(\"address\", \"123 Caramel Street\")\n\t\t\t\t.param(\"city\", \"London\")\n\t\t\t\t.param(\"telephone\", \"1316761638\"))\n\t\t\t.andExpect(status().is3xxRedirection());\n\t}"
+  },
+  {
+    "name": "testProcessCreationFormHasErrors",
+    "body": "{\n\t\tmockMvc\n\t\t\t.perform(post(\"/owners/new\").param(\"firstName\", \"Joe\").param(\"lastName\", \"Bloggs\").param(\"city\", \"London\"))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(model().attributeHasErrors(\"owner\"))\n\t\t\t.andExpect(model().attributeHasFieldErrors(\"owner\", \"address\"))\n\t\t\t.andExpect(model().attributeHasFieldErrors(\"owner\", \"telephone\"))\n\t\t\t.andExpect(view().name(\"owners/createOrUpdateOwnerForm\"));\n\t}"
+  },
+  {
+    "name": "testInitFindForm",
+    "body": "{\n\t\tmockMvc.perform(get(\"/owners/find\"))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(model().attributeExists(\"owner\"))\n\t\t\t.andExpect(view().name(\"owners/findOwners\"));\n\t}"
+  },
+  {
+    "name": "testProcessFindFormSuccess",
+    "body": "{\n\t\tPage<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));\n\t\twhen(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);\n\t\tmockMvc.perform(get(\"/owners?page=1\")).andExpect(status().isOk()).andExpect(view().name(\"owners/ownersList\"));\n\t}"
+  },
+  {
+    "name": "testProcessFindFormByLastName",
+    "body": "{\n\t\tPage<Owner> tasks = new PageImpl<>(List.of(george()));\n\t\twhen(this.owners.findByLastNameStartingWith(eq(\"Franklin\"), any(Pageable.class))).thenReturn(tasks);\n\t\tmockMvc.perform(get(\"/owners?page=1\").param(\"lastName\", \"Franklin\"))\n\t\t\t.andExpect(status().is3xxRedirection())\n\t\t\t.andExpect(view().name(\"redirect:/owners/\" + TEST_OWNER_ID));\n\t}"
+  },
+  {
+    "name": "testProcessFindFormNoOwnersFound",
+    "body": "{\n\t\tPage<Owner> tasks = new PageImpl<>(List.of());\n\t\twhen(this.owners.findByLastNameStartingWith(eq(\"Unknown Surname\"), any(Pageable.class))).thenReturn(tasks);\n\t\tmockMvc.perform(get(\"/owners?page=1\").param(\"lastName\", \"Unknown Surname\"))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(model().attributeHasFieldErrors(\"owner\", \"lastName\"))\n\t\t\t.andExpect(model().attributeHasFieldErrorCode(\"owner\", \"lastName\", \"notFound\"))\n\t\t\t.andExpect(view().name(\"owners/findOwners\"));\n\n\t}"
+  },
+  {
+    "name": "testInitUpdateOwnerForm",
+    "body": "{\n\t\tmockMvc.perform(get(\"/owners/{ownerId}/edit\", TEST_OWNER_ID))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(model().attributeExists(\"owner\"))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"lastName\", is(\"Franklin\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"firstName\", is(\"George\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"address\", is(\"110 W. Liberty St.\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"city\", is(\"Madison\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"telephone\", is(\"6085551023\"))))\n\t\t\t.andExpect(view().name(\"owners/createOrUpdateOwnerForm\"));\n\t}"
+  },
+  {
+    "name": "testProcessUpdateOwnerFormSuccess",
+    "body": "{\n\t\tmockMvc\n\t\t\t.perform(post(\"/owners/{ownerId}/edit\", TEST_OWNER_ID).param(\"firstName\", \"Joe\")\n\t\t\t\t.param(\"lastName\", \"Bloggs\")\n\t\t\t\t.param(\"address\", \"123 Caramel Street\")\n\t\t\t\t.param(\"city\", \"London\")\n\t\t\t\t.param(\"telephone\", \"1616291589\"))\n\t\t\t.andExpect(status().is3xxRedirection())\n\t\t\t.andExpect(view().name(\"redirect:/owners/{ownerId}\"));\n\t}"
+  },
+  {
+    "name": "testProcessUpdateOwnerFormUnchangedSuccess",
+    "body": "{\n\t\tmockMvc.perform(post(\"/owners/{ownerId}/edit\", TEST_OWNER_ID))\n\t\t\t.andExpect(status().is3xxRedirection())\n\t\t\t.andExpect(view().name(\"redirect:/owners/{ownerId}\"));\n\t}"
+  },
+  {
+    "name": "testProcessUpdateOwnerFormHasErrors",
+    "body": "{\n\t\tmockMvc\n\t\t\t.perform(post(\"/owners/{ownerId}/edit\", TEST_OWNER_ID).param(\"firstName\", \"Joe\")\n\t\t\t\t.param(\"lastName\", \"Bloggs\")\n\t\t\t\t.param(\"address\", \"\")\n\t\t\t\t.param(\"telephone\", \"\"))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(model().attributeHasErrors(\"owner\"))\n\t\t\t.andExpect(model().attributeHasFieldErrors(\"owner\", \"address\"))\n\t\t\t.andExpect(model().attributeHasFieldErrors(\"owner\", \"telephone\"))\n\t\t\t.andExpect(view().name(\"owners/createOrUpdateOwnerForm\"));\n\t}"
+  },
+  {
+    "name": "testShowOwner",
+    "body": "{\n\t\tmockMvc.perform(get(\"/owners/{ownerId}\", TEST_OWNER_ID))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"lastName\", is(\"Franklin\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"firstName\", is(\"George\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"address\", is(\"110 W. Liberty St.\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"city\", is(\"Madison\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"telephone\", is(\"6085551023\"))))\n\t\t\t.andExpect(model().attribute(\"owner\", hasProperty(\"pets\", not(empty()))))\n\t\t\t.andExpect(model().attribute(\"owner\",\n\t\t\t\t\thasProperty(\"pets\", hasItem(hasProperty(\"visits\", hasSize(greaterThan(0)))))))\n\t\t\t.andExpect(view().name(\"owners/ownerDetails\"));\n\t}"
+  },
+  {
+    "name": "testProcessUpdateOwnerFormWithIdMismatch",
+    "body": "{\n\t\tint pathOwnerId = 1;\n\n\t\tOwner owner = new Owner();\n\t\towner.setId(2);\n\t\towner.setFirstName(\"John\");\n\t\towner.setLastName(\"Doe\");\n\t\towner.setAddress(\"Center Street\");\n\t\towner.setCity(\"New York\");\n\t\towner.setTelephone(\"0123456789\");\n\n\t\twhen(owners.findById(pathOwnerId)).thenReturn(Optional.of(owner));\n\n\t\tmockMvc.perform(MockMvcRequestBuilders.post(\"/owners/{ownerId}/edit\", pathOwnerId).flashAttr(\"owner\", owner))\n\t\t\t.andExpect(status().is3xxRedirection())\n\t\t\t.andExpect(redirectedUrl(\"/owners/\" + pathOwnerId + \"/edit\"))\n\t\t\t.andExpect(flash().attributeExists(\"error\"));\n\t}"
+  },
+  {
+    "name": "init",
+    "body": "{\n\t\tOwner owner = new Owner();\n\t\tPet pet = new Pet();\n\t\towner.addPet(pet);\n\t\tpet.setId(TEST_PET_ID);\n\t\tgiven(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(owner));\n\t}"
+  },
+  {
+    "name": "testInitNewVisitForm",
+    "body": "{\n\t\tmockMvc.perform(get(\"/owners/{ownerId}/pets/{petId}/visits/new\", TEST_OWNER_ID, TEST_PET_ID))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(view().name(\"pets/createOrUpdateVisitForm\"));\n\t}"
+  },
+  {
+    "name": "testProcessNewVisitFormSuccess",
+    "body": "{\n\t\tmockMvc\n\t\t\t.perform(post(\"/owners/{ownerId}/pets/{petId}/visits/new\", TEST_OWNER_ID, TEST_PET_ID)\n\t\t\t\t.param(\"name\", \"George\")\n\t\t\t\t.param(\"description\", \"Visit Description\"))\n\t\t\t.andExpect(status().is3xxRedirection())\n\t\t\t.andExpect(view().name(\"redirect:/owners/{ownerId}\"));\n\t}"
+  },
+  {
+    "name": "testProcessNewVisitFormHasErrors",
+    "body": "{\n\t\tmockMvc\n\t\t\t.perform(post(\"/owners/{ownerId}/pets/{petId}/visits/new\", TEST_OWNER_ID, TEST_PET_ID).param(\"name\",\n\t\t\t\t\t\"George\"))\n\t\t\t.andExpect(model().attributeHasErrors(\"visit\"))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(view().name(\"pets/createOrUpdateVisitForm\"));\n\t}"
+  },
+  {
+    "name": "testValidateWithInvalidPetName",
+    "body": "{\n\t\t\tpetType.setName(petTypeName);\n\t\t\tpet.setName(\"\");\n\t\t\tpet.setType(petType);\n\t\t\tpet.setBirthDate(petBirthDate);\n\n\t\t\tpetValidator.validate(pet, errors);\n\n\t\t\tassertTrue(errors.hasFieldErrors(\"name\"));\n\t\t}"
+  },
+  {
+    "name": "testValidateWithInvalidPetType",
+    "body": "{\n\t\t\tpet.setName(petName);\n\t\t\tpet.setType(null);\n\t\t\tpet.setBirthDate(petBirthDate);\n\n\t\t\tpetValidator.validate(pet, errors);\n\n\t\t\tassertTrue(errors.hasFieldErrors(\"type\"));\n\t\t}"
+  },
+  {
+    "name": "testValidateWithInvalidBirthDate",
+    "body": "{\n\t\t\tpetType.setName(petTypeName);\n\t\t\tpet.setName(petName);\n\t\t\tpet.setType(petType);\n\t\t\tpet.setBirthDate(null);\n\n\t\t\tpetValidator.validate(pet, errors);\n\n\t\t\tassertTrue(errors.hasFieldErrors(\"birthDate\"));\n\t\t}"
+  },
+  {
+    "name": "setUp",
+    "body": "{\n\t\tpetValidator = new PetValidator();\n\t\tpet = new Pet();\n\t\tpetType = new PetType();\n\t\terrors = new MapBindingResult(new HashMap<>(), \"pet\");\n\t}"
+  },
+  {
+    "name": "testValidate",
+    "body": "{\n\t\tpetType.setName(petTypeName);\n\t\tpet.setName(petName);\n\t\tpet.setType(petType);\n\t\tpet.setBirthDate(petBirthDate);\n\n\t\tpetValidator.validate(pet, errors);\n\n\t\tassertFalse(errors.hasErrors());\n\t}"
+  },
+  {
+    "name": "setup",
+    "body": "{\n\t\tthis.petTypeFormatter = new PetTypeFormatter(types);\n\t}"
+  },
+  {
+    "name": "testPrint",
+    "body": "{\n\t\tPetType petType = new PetType();\n\t\tpetType.setName(\"Hamster\");\n\t\tString petTypeName = this.petTypeFormatter.print(petType, Locale.ENGLISH);\n\t\tassertThat(petTypeName).isEqualTo(\"Hamster\");\n\t}"
+  },
+  {
+    "name": "shouldParse",
+    "body": "{\n\t\tgiven(types.findPetTypes()).willReturn(makePetTypes());\n\t\tPetType petType = petTypeFormatter.parse(\"Bird\", Locale.ENGLISH);\n\t\tassertThat(petType.getName()).isEqualTo(\"Bird\");\n\t}"
+  },
+  {
+    "name": "shouldThrowParseException",
+    "body": "{\n\t\tgiven(types.findPetTypes()).willReturn(makePetTypes());\n\t\tAssertions.assertThrows(ParseException.class, () -> {\n\t\t\tpetTypeFormatter.parse(\"Fish\", Locale.ENGLISH);\n\t\t});\n\t}"
+  },
+  {
+    "name": "makePetTypes",
+    "body": "{\n\t\tList<PetType> petTypes = new ArrayList<>();\n\t\tpetTypes.add(new PetType() {\n\t\t\t{\n\t\t\t\tsetName(\"Dog\");\n\t\t\t}\n\t\t});\n\t\tpetTypes.add(new PetType() {\n\t\t\t{\n\t\t\t\tsetName(\"Bird\");\n\t\t\t}\n\t\t});\n\t\treturn petTypes;\n\t}"
+  },
+  {
+    "name": "testTriggerExceptionJson",
+    "body": "{\n\t\tResponseEntity<Map<String, Object>> resp = rest.exchange(\n\t\t\t\tRequestEntity.get(\"http://localhost:\" + port + \"/oups\").build(),\n\t\t\t\tnew ParameterizedTypeReference<Map<String, Object>>() {\n\t\t\t\t});\n\t\tassertThat(resp).isNotNull();\n\t\tassertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);\n\t\tassertThat(resp.getBody()).containsKey(\"timestamp\");\n\t\tassertThat(resp.getBody()).containsKey(\"status\");\n\t\tassertThat(resp.getBody()).containsKey(\"error\");\n\t\tassertThat(resp.getBody()).containsEntry(\"message\",\n\t\t\t\t\"Expected: controller used to showcase what happens when an exception is thrown\");\n\t\tassertThat(resp.getBody()).containsEntry(\"path\", \"/oups\");\n\t}"
+  },
+  {
+    "name": "testTriggerExceptionHtml",
+    "body": "{\n\t\tHttpHeaders headers = new HttpHeaders();\n\t\theaders.setAccept(List.of(MediaType.TEXT_HTML));\n\t\tResponseEntity<String> resp = rest.exchange(\"http://localhost:\" + port + \"/oups\", HttpMethod.GET,\n\t\t\t\tnew HttpEntity<>(headers), String.class);\n\t\tassertThat(resp).isNotNull();\n\t\tassertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);\n\t\tassertThat(resp.getBody()).isNotNull();\n\t\t// html:\n\t\tassertThat(resp.getBody()).containsSubsequence(\"<body>\", \"<h2>\", \"Something happened...\", \"</h2>\", \"<p>\",\n\t\t\t\t\"Expected:\", \"controller\", \"used\", \"to\", \"showcase\", \"what\", \"happens\", \"when\", \"an\", \"exception\", \"is\",\n\t\t\t\t\"thrown\", \"</p>\", \"</body>\");\n\t\t// Not the whitelabel error page:\n\t\tassertThat(resp.getBody()).doesNotContain(\"Whitelabel Error Page\",\n\t\t\t\t\"This application has no explicit mapping for\");\n\t}"
+  },
+  {
+    "name": "testTriggerException",
+    "body": "{\n\t\tassertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> testee.triggerException())\n\t\t\t.withMessageContaining(\"Expected: controller used to showcase what happens when an exception is thrown\");\n\t}"
+  },
+  {
+    "name": "testProcessCreationFormWithBlankName",
+    "body": "{\n\t\t\tmockMvc\n\t\t\t\t.perform(post(\"/owners/{ownerId}/pets/new\", TEST_OWNER_ID).param(\"name\", \"\\t \\n\")\n\t\t\t\t\t.param(\"birthDate\", \"2015-02-12\"))\n\t\t\t\t.andExpect(model().attributeHasNoErrors(\"owner\"))\n\t\t\t\t.andExpect(model().attributeHasErrors(\"pet\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrors(\"pet\", \"name\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrorCode(\"pet\", \"name\", \"required\"))\n\t\t\t\t.andExpect(status().isOk())\n\t\t\t\t.andExpect(view().name(\"pets/createOrUpdatePetForm\"));\n\t\t}"
+  },
+  {
+    "name": "testProcessCreationFormWithDuplicateName",
+    "body": "{\n\t\t\tmockMvc\n\t\t\t\t.perform(post(\"/owners/{ownerId}/pets/new\", TEST_OWNER_ID).param(\"name\", \"petty\")\n\t\t\t\t\t.param(\"birthDate\", \"2015-02-12\"))\n\t\t\t\t.andExpect(model().attributeHasNoErrors(\"owner\"))\n\t\t\t\t.andExpect(model().attributeHasErrors(\"pet\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrors(\"pet\", \"name\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrorCode(\"pet\", \"name\", \"duplicate\"))\n\t\t\t\t.andExpect(status().isOk())\n\t\t\t\t.andExpect(view().name(\"pets/createOrUpdatePetForm\"));\n\t\t}"
+  },
+  {
+    "name": "testProcessCreationFormWithMissingPetType",
+    "body": "{\n\t\t\tmockMvc\n\t\t\t\t.perform(post(\"/owners/{ownerId}/pets/new\", TEST_OWNER_ID).param(\"name\", \"Betty\")\n\t\t\t\t\t.param(\"birthDate\", \"2015-02-12\"))\n\t\t\t\t.andExpect(model().attributeHasNoErrors(\"owner\"))\n\t\t\t\t.andExpect(model().attributeHasErrors(\"pet\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrors(\"pet\", \"type\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrorCode(\"pet\", \"type\", \"required\"))\n\t\t\t\t.andExpect(status().isOk())\n\t\t\t\t.andExpect(view().name(\"pets/createOrUpdatePetForm\"));\n\t\t}"
+  },
+  {
+    "name": "testProcessCreationFormWithInvalidBirthDate",
+    "body": "{\n\t\t\tLocalDate currentDate = LocalDate.now();\n\t\t\tString futureBirthDate = currentDate.plusMonths(1).toString();\n\n\t\t\tmockMvc\n\t\t\t\t.perform(post(\"/owners/{ownerId}/pets/new\", TEST_OWNER_ID).param(\"name\", \"Betty\")\n\t\t\t\t\t.param(\"birthDate\", futureBirthDate))\n\t\t\t\t.andExpect(model().attributeHasNoErrors(\"owner\"))\n\t\t\t\t.andExpect(model().attributeHasErrors(\"pet\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrors(\"pet\", \"birthDate\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrorCode(\"pet\", \"birthDate\", \"typeMismatch.birthDate\"))\n\t\t\t\t.andExpect(status().isOk())\n\t\t\t\t.andExpect(view().name(\"pets/createOrUpdatePetForm\"));\n\t\t}"
+  },
+  {
+    "name": "testInitUpdateForm",
+    "body": "{\n\t\t\tmockMvc.perform(get(\"/owners/{ownerId}/pets/{petId}/edit\", TEST_OWNER_ID, TEST_PET_ID))\n\t\t\t\t.andExpect(status().isOk())\n\t\t\t\t.andExpect(model().attributeExists(\"pet\"))\n\t\t\t\t.andExpect(view().name(\"pets/createOrUpdatePetForm\"));\n\t\t}"
+  },
+  {
+    "name": "testProcessUpdateFormWithInvalidBirthDate",
+    "body": "{\n\t\t\tmockMvc\n\t\t\t\t.perform(post(\"/owners/{ownerId}/pets/{petId}/edit\", TEST_OWNER_ID, TEST_PET_ID).param(\"name\", \" \")\n\t\t\t\t\t.param(\"birthDate\", \"2015/02/12\"))\n\t\t\t\t.andExpect(model().attributeHasNoErrors(\"owner\"))\n\t\t\t\t.andExpect(model().attributeHasErrors(\"pet\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrors(\"pet\", \"birthDate\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrorCode(\"pet\", \"birthDate\", \"typeMismatch\"))\n\t\t\t\t.andExpect(view().name(\"pets/createOrUpdatePetForm\"));\n\t\t}"
+  },
+  {
+    "name": "testProcessUpdateFormWithBlankName",
+    "body": "{\n\t\t\tmockMvc\n\t\t\t\t.perform(post(\"/owners/{ownerId}/pets/{petId}/edit\", TEST_OWNER_ID, TEST_PET_ID).param(\"name\", \"  \")\n\t\t\t\t\t.param(\"birthDate\", \"2015-02-12\"))\n\t\t\t\t.andExpect(model().attributeHasNoErrors(\"owner\"))\n\t\t\t\t.andExpect(model().attributeHasErrors(\"pet\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrors(\"pet\", \"name\"))\n\t\t\t\t.andExpect(model().attributeHasFieldErrorCode(\"pet\", \"name\", \"required\"))\n\t\t\t\t.andExpect(view().name(\"pets/createOrUpdatePetForm\"));\n\t\t}"
+  },
+  {
+    "name": "setup",
+    "body": "{\n\t\tPetType cat = new PetType();\n\t\tcat.setId(3);\n\t\tcat.setName(\"hamster\");\n\t\tgiven(this.types.findPetTypes()).willReturn(List.of(cat));\n\n\t\tOwner owner = new Owner();\n\t\tPet pet = new Pet();\n\t\tPet dog = new Pet();\n\t\towner.addPet(pet);\n\t\towner.addPet(dog);\n\t\tpet.setId(TEST_PET_ID);\n\t\tdog.setId(TEST_PET_ID + 1);\n\t\tpet.setName(\"petty\");\n\t\tdog.setName(\"doggy\");\n\t\tgiven(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(owner));\n\t}"
+  },
+  {
+    "name": "testInitCreationForm",
+    "body": "{\n\t\tmockMvc.perform(get(\"/owners/{ownerId}/pets/new\", TEST_OWNER_ID))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(view().name(\"pets/createOrUpdatePetForm\"))\n\t\t\t.andExpect(model().attributeExists(\"pet\"));\n\t}"
+  },
+  {
+    "name": "testProcessCreationFormSuccess",
+    "body": "{\n\t\tmockMvc\n\t\t\t.perform(post(\"/owners/{ownerId}/pets/new\", TEST_OWNER_ID).param(\"name\", \"Betty\")\n\t\t\t\t.param(\"type\", \"hamster\")\n\t\t\t\t.param(\"birthDate\", \"2015-02-12\"))\n\t\t\t.andExpect(status().is3xxRedirection())\n\t\t\t.andExpect(view().name(\"redirect:/owners/{ownerId}\"));\n\t}"
+  },
+  {
+    "name": "testProcessUpdateFormSuccess",
+    "body": "{\n\t\tmockMvc\n\t\t\t.perform(post(\"/owners/{ownerId}/pets/{petId}/edit\", TEST_OWNER_ID, TEST_PET_ID).param(\"name\", \"Betty\")\n\t\t\t\t.param(\"type\", \"hamster\")\n\t\t\t\t.param(\"birthDate\", \"2015-02-12\"))\n\t\t\t.andExpect(status().is3xxRedirection())\n\t\t\t.andExpect(view().name(\"redirect:/owners/{ownerId}\"));\n\t}"
+  },
+  {
+    "name": "checkNonInternationalizedStrings",
+    "body": "{\n\t\tPath root = Paths.get(\"src/main\");\n\t\tList<Path> files;\n\n\t\ttry (Stream<Path> stream = Files.walk(root)) {\n\t\t\tfiles = stream.filter(p -> p.toString().endsWith(\".java\") || p.toString().endsWith(\".html\"))\n\t\t\t\t.filter(p -> !p.toString().contains(\"/test/\"))\n\t\t\t\t.filter(p -> !p.getFileName().toString().endsWith(\"Test.java\"))\n\t\t\t\t.toList();\n\t\t}\n\n\t\tStringBuilder report = new StringBuilder();\n\n\t\tfor (Path file : files) {\n\t\t\tList<String> lines = Files.readAllLines(file);\n\t\t\tfor (int i = 0; i < lines.size(); i++) {\n\t\t\t\tString line = lines.get(i).trim();\n\n\t\t\t\tif (line.startsWith(\"//\") || line.startsWith(\"@\") || line.contains(\"log.\")\n\t\t\t\t\t\t|| line.contains(\"System.out\"))\n\t\t\t\t\tcontinue;\n\n\t\t\t\tif (file.toString().endsWith(\".html\")) {\n\t\t\t\t\tboolean hasLiteralText = HTML_TEXT_LITERAL.matcher(line).find();\n\t\t\t\t\tboolean hasThTextAttribute = HAS_TH_TEXT_ATTRIBUTE.matcher(line).find();\n\t\t\t\t\tboolean isBracketOnly = BRACKET_ONLY.matcher(line).find();\n\n\t\t\t\t\tif (hasLiteralText && !line.contains(\"#{\") && !hasThTextAttribute && !isBracketOnly) {\n\t\t\t\t\t\treport.append(\"HTML: \")\n\t\t\t\t\t\t\t.append(file)\n\t\t\t\t\t\t\t.append(\" Line \")\n\t\t\t\t\t\t\t.append(i + 1)\n\t\t\t\t\t\t\t.append(\": \")\n\t\t\t\t\t\t\t.append(line)\n\t\t\t\t\t\t\t.append(\"\\n\");\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n\t\tif (!report.isEmpty()) {\n\t\t\tfail(\"Hardcoded (non-internationalized) strings found:\\n\" + report);\n\t\t}\n\t}"
+  },
+  {
+    "name": "checkI18nPropertyFilesAreInSync",
+    "body": "{\n\t\tList<Path> propertyFiles;\n\t\ttry (Stream<Path> stream = Files.walk(Paths.get(I18N_DIR))) {\n\t\t\tpropertyFiles = stream.filter(p -> p.getFileName().toString().startsWith(BASE_NAME))\n\t\t\t\t.filter(p -> p.getFileName().toString().endsWith(PROPERTIES))\n\t\t\t\t.toList();\n\t\t}\n\n\t\tMap<String, Properties> localeToProps = new HashMap<>();\n\n\t\tfor (Path path : propertyFiles) {\n\t\t\tProperties props = new Properties();\n\t\t\ttry (var reader = Files.newBufferedReader(path)) {\n\t\t\t\tprops.load(reader);\n\t\t\t\tlocaleToProps.put(path.getFileName().toString(), props);\n\t\t\t}\n\t\t}\n\n\t\tString baseFile = BASE_NAME + PROPERTIES;\n\t\tProperties baseProps = localeToProps.get(baseFile);\n\t\tif (baseProps == null) {\n\t\t\tfail(\"Base properties file '\" + baseFile + \"' not found.\");\n\t\t\treturn;\n\t\t}\n\n\t\tSet<String> baseKeys = baseProps.stringPropertyNames();\n\t\tStringBuilder report = new StringBuilder();\n\n\t\tfor (Map.Entry<String, Properties> entry : localeToProps.entrySet()) {\n\t\t\tString fileName = entry.getKey();\n\t\t\t// We use fallback logic to include english strings, hence messages_en is not\n\t\t\t// populated.\n\t\t\tif (fileName.equals(baseFile) || fileName.equals(\"messages_en.properties\"))\n\t\t\t\tcontinue;\n\n\t\t\tProperties props = entry.getValue();\n\t\t\tSet<String> missingKeys = new TreeSet<>(baseKeys);\n\t\t\tmissingKeys.removeAll(props.stringPropertyNames());\n\n\t\t\tif (!missingKeys.isEmpty()) {\n\t\t\t\treport.append(\"Missing keys in \").append(fileName).append(\":\\n\");\n\t\t\t\tmissingKeys.forEach(k -> report.append(\"  \").append(k).append(\"\\n\"));\n\t\t\t}\n\t\t}\n\n\t\tif (!report.isEmpty()) {\n\t\t\tfail(\"Translation files are not in sync:\\n\" + report);\n\t\t}\n\t}"
+  },
+  {
+    "name": "getById",
+    "body": "{\n\t\tfor (T entity : entities) {\n\t\t\tif (entity.getId() != null && entity.getId() == entityId && entityClass.isInstance(entity)) {\n\t\t\t\treturn entity;\n\t\t\t}\n\t\t}\n\t\tthrow new ObjectRetrievalFailureException(entityClass, entityId);\n\t}"
+  },
+  {
+    "name": "main",
+    "body": "{\n\t\tSpringApplication.run(PetClinicApplication.class, args);\n\t}"
+  },
+  {
+    "name": "shouldFindOwnersByLastName",
+    "body": "{\n\t\tPage<Owner> owners = this.owners.findByLastNameStartingWith(\"Davis\", pageable);\n\t\tassertThat(owners).hasSize(2);\n\n\t\towners = this.owners.findByLastNameStartingWith(\"Daviss\", pageable);\n\t\tassertThat(owners).isEmpty();\n\t}"
+  },
+  {
+    "name": "shouldFindSingleOwnerWithPet",
+    "body": "{\n\t\tOptional<Owner> optionalOwner = this.owners.findById(1);\n\t\tassertThat(optionalOwner).isPresent();\n\t\tOwner owner = optionalOwner.get();\n\t\tassertThat(owner.getLastName()).startsWith(\"Franklin\");\n\t\tassertThat(owner.getPets()).hasSize(1);\n\t\tassertThat(owner.getPets().get(0).getType()).isNotNull();\n\t\tassertThat(owner.getPets().get(0).getType().getName()).isEqualTo(\"cat\");\n\t}"
+  },
+  {
+    "name": "shouldInsertOwner",
+    "body": "{\n\t\tPage<Owner> owners = this.owners.findByLastNameStartingWith(\"Schultz\", pageable);\n\t\tint found = (int) owners.getTotalElements();\n\n\t\tOwner owner = new Owner();\n\t\towner.setFirstName(\"Sam\");\n\t\towner.setLastName(\"Schultz\");\n\t\towner.setAddress(\"4, Evans Street\");\n\t\towner.setCity(\"Wollongong\");\n\t\towner.setTelephone(\"4444444444\");\n\t\tthis.owners.save(owner);\n\t\tassertThat(owner.getId()).isNotZero();\n\n\t\towners = this.owners.findByLastNameStartingWith(\"Schultz\", pageable);\n\t\tassertThat(owners.getTotalElements()).isEqualTo(found + 1);\n\t}"
+  },
+  {
+    "name": "shouldUpdateOwner",
+    "body": "{\n\t\tOptional<Owner> optionalOwner = this.owners.findById(1);\n\t\tassertThat(optionalOwner).isPresent();\n\t\tOwner owner = optionalOwner.get();\n\t\tString oldLastName = owner.getLastName();\n\t\tString newLastName = oldLastName + \"X\";\n\n\t\towner.setLastName(newLastName);\n\t\tthis.owners.save(owner);\n\n\t\t// retrieving new name from database\n\t\toptionalOwner = this.owners.findById(1);\n\t\tassertThat(optionalOwner).isPresent();\n\t\towner = optionalOwner.get();\n\t\tassertThat(owner.getLastName()).isEqualTo(newLastName);\n\t}"
+  },
+  {
+    "name": "shouldFindAllPetTypes",
+    "body": "{\n\t\tCollection<PetType> petTypes = this.types.findPetTypes();\n\n\t\tPetType petType1 = EntityUtils.getById(petTypes, PetType.class, 1);\n\t\tassertThat(petType1.getName()).isEqualTo(\"cat\");\n\t\tPetType petType4 = EntityUtils.getById(petTypes, PetType.class, 4);\n\t\tassertThat(petType4.getName()).isEqualTo(\"snake\");\n\t}"
+  },
+  {
+    "name": "shouldInsertPetIntoDatabaseAndGenerateId",
+    "body": "{\n\t\tOptional<Owner> optionalOwner = this.owners.findById(6);\n\t\tassertThat(optionalOwner).isPresent();\n\t\tOwner owner6 = optionalOwner.get();\n\n\t\tint found = owner6.getPets().size();\n\n\t\tPet pet = new Pet();\n\t\tpet.setName(\"bowser\");\n\t\tCollection<PetType> types = this.types.findPetTypes();\n\t\tpet.setType(EntityUtils.getById(types, PetType.class, 2));\n\t\tpet.setBirthDate(LocalDate.now());\n\t\towner6.addPet(pet);\n\t\tassertThat(owner6.getPets()).hasSize(found + 1);\n\n\t\tthis.owners.save(owner6);\n\n\t\toptionalOwner = this.owners.findById(6);\n\t\tassertThat(optionalOwner).isPresent();\n\t\towner6 = optionalOwner.get();\n\t\tassertThat(owner6.getPets()).hasSize(found + 1);\n\t\t// checks that id has been generated\n\t\tpet = owner6.getPet(\"bowser\");\n\t\tassertThat(pet.getId()).isNotNull();\n\t}"
+  },
+  {
+    "name": "shouldUpdatePetName",
+    "body": "{\n\t\tOptional<Owner> optionalOwner = this.owners.findById(6);\n\t\tassertThat(optionalOwner).isPresent();\n\t\tOwner owner6 = optionalOwner.get();\n\n\t\tPet pet7 = owner6.getPet(7);\n\t\tString oldName = pet7.getName();\n\n\t\tString newName = oldName + \"X\";\n\t\tpet7.setName(newName);\n\t\tthis.owners.save(owner6);\n\n\t\toptionalOwner = this.owners.findById(6);\n\t\tassertThat(optionalOwner).isPresent();\n\t\towner6 = optionalOwner.get();\n\t\tpet7 = owner6.getPet(7);\n\t\tassertThat(pet7.getName()).isEqualTo(newName);\n\t}"
+  },
+  {
+    "name": "shouldFindVets",
+    "body": "{\n\t\tCollection<Vet> vets = this.vets.findAll();\n\n\t\tVet vet = EntityUtils.getById(vets, Vet.class, 3);\n\t\tassertThat(vet.getLastName()).isEqualTo(\"Douglas\");\n\t\tassertThat(vet.getNrOfSpecialties()).isEqualTo(2);\n\t\tassertThat(vet.getSpecialties().get(0).getName()).isEqualTo(\"dentistry\");\n\t\tassertThat(vet.getSpecialties().get(1).getName()).isEqualTo(\"surgery\");\n\t}"
+  },
+  {
+    "name": "shouldAddNewVisitForPet",
+    "body": "{\n\t\tOptional<Owner> optionalOwner = this.owners.findById(6);\n\t\tassertThat(optionalOwner).isPresent();\n\t\tOwner owner6 = optionalOwner.get();\n\n\t\tPet pet7 = owner6.getPet(7);\n\t\tint found = pet7.getVisits().size();\n\t\tVisit visit = new Visit();\n\t\tvisit.setDescription(\"test\");\n\n\t\towner6.addVisit(pet7.getId(), visit);\n\t\tthis.owners.save(owner6);\n\n\t\tassertThat(pet7.getVisits()) //\n\t\t\t.hasSize(found + 1) //\n\t\t\t.allMatch(value -> value.getId() != null);\n\t}"
+  },
+  {
+    "name": "shouldFindVisitsByPetId",
+    "body": "{\n\t\tOptional<Owner> optionalOwner = this.owners.findById(6);\n\t\tassertThat(optionalOwner).isPresent();\n\t\tOwner owner6 = optionalOwner.get();\n\n\t\tPet pet7 = owner6.getPet(7);\n\t\tCollection<Visit> visits = pet7.getVisits();\n\n\t\tassertThat(visits) //\n\t\t\t.hasSize(2) //\n\t\t\t.element(0)\n\t\t\t.extracting(Visit::getDate)\n\t\t\t.isNotNull();\n\t}"
+  },
+  {
+    "name": "getSpecialtiesInternal",
+    "body": "{\n\t\tif (this.specialties == null) {\n\t\t\tthis.specialties = new HashSet<>();\n\t\t}\n\t\treturn this.specialties;\n\t}"
+  },
+  {
+    "name": "getSpecialties",
+    "body": "{\n\t\treturn getSpecialtiesInternal().stream()\n\t\t\t.sorted(Comparator.comparing(NamedEntity::getName))\n\t\t\t.collect(Collectors.toList());\n\t}"
+  },
+  {
+    "name": "getNrOfSpecialties",
+    "body": "{\n\t\treturn getSpecialtiesInternal().size();\n\t}"
+  },
+  {
+    "name": "addSpecialty",
+    "body": "{\n\t\tgetSpecialtiesInternal().add(specialty);\n\t}"
+  },
+  {
+    "name": "VetController",
+    "body": "{\n\t\tthis.vetRepository = vetRepository;\n\t}"
+  },
+  {
+    "name": "showVetList",
+    "body": "{\n\t\t// Here we are returning an object of type 'Vets' rather than a collection of Vet\n\t\t// objects so it is simpler for Object-Xml mapping\n\t\tVets vets = new Vets();\n\t\tPage<Vet> paginated = findPaginated(page);\n\t\tvets.getVetList().addAll(paginated.toList());\n\t\treturn addPaginationModel(page, paginated, model);\n\t}"
+  },
+  {
+    "name": "addPaginationModel",
+    "body": "{\n\t\tList<Vet> listVets = paginated.getContent();\n\t\tmodel.addAttribute(\"currentPage\", page);\n\t\tmodel.addAttribute(\"totalPages\", paginated.getTotalPages());\n\t\tmodel.addAttribute(\"totalItems\", paginated.getTotalElements());\n\t\tmodel.addAttribute(\"listVets\", listVets);\n\t\treturn \"vets/vetList\";\n\t}"
+  },
+  {
+    "name": "findPaginated",
+    "body": "{\n\t\tint pageSize = 5;\n\t\tPageable pageable = PageRequest.of(page - 1, pageSize);\n\t\treturn vetRepository.findAll(pageable);\n\t}"
+  },
+  {
+    "name": "showResourcesVetList",
+    "body": "{\n\t\t// Here we are returning an object of type 'Vets' rather than a collection of Vet\n\t\t// objects so it is simpler for JSon/Object mapping\n\t\tVets vets = new Vets();\n\t\tvets.getVetList().addAll(this.vetRepository.findAll());\n\t\treturn vets;\n\t}"
+  },
+  {
+    "name": "registerHints",
+    "body": "{\n\t\thints.resources().registerPattern(\"db/*\"); // https://github.com/spring-projects/spring-boot/issues/32654\n\t\thints.resources().registerPattern(\"messages/*\");\n\t\thints.resources().registerPattern(\"mysql-default-conf\");\n\t\thints.serialization().registerType(BaseEntity.class);\n\t\thints.serialization().registerType(Person.class);\n\t\thints.serialization().registerType(Vet.class);\n\t}"
+  },
+  {
+    "name": "findAll"
+  },
+  {
+    "name": "findAll"
+  },
+  {
+    "name": "getVetList",
+    "body": "{\n\t\tif (vets == null) {\n\t\t\tvets = new ArrayList<>();\n\t\t}\n\t\treturn vets;\n\t}"
+  },
+  {
+    "name": "getFirstName",
+    "body": "{\n\t\treturn this.firstName;\n\t}"
+  },
+  {
+    "name": "setFirstName",
+    "body": "{\n\t\tthis.firstName = firstName;\n\t}"
+  },
+  {
+    "name": "getLastName",
+    "body": "{\n\t\treturn this.lastName;\n\t}"
+  },
+  {
+    "name": "setLastName",
+    "body": "{\n\t\tthis.lastName = lastName;\n\t}"
+  },
+  {
+    "name": "findByLastNameStartingWith"
+  },
+  {
+    "name": "findById"
+  },
+  {
+    "name": "getId",
+    "body": "{\n\t\treturn id;\n\t}"
+  },
+  {
+    "name": "setId",
+    "body": "{\n\t\tthis.id = id;\n\t}"
+  },
+  {
+    "name": "isNew",
+    "body": "{\n\t\treturn this.id == null;\n\t}"
+  },
+  {
+    "name": "getName",
+    "body": "{\n\t\treturn this.name;\n\t}"
+  },
+  {
+    "name": "setName",
+    "body": "{\n\t\tthis.name = name;\n\t}"
+  },
+  {
+    "name": "toString",
+    "body": "{\n\t\tString name = this.getName();\n\t\treturn (name != null) ? name : \"<null>\";\n\t}"
+  },
+  {
+    "name": "PetController",
+    "body": "{\n\t\tthis.owners = owners;\n\t\tthis.types = types;\n\t}"
+  },
+  {
+    "name": "populatePetTypes",
+    "body": "{\n\t\treturn this.types.findPetTypes();\n\t}"
+  },
+  {
+    "name": "findOwner",
+    "body": "{\n\t\tOptional<Owner> optionalOwner = this.owners.findById(ownerId);\n\t\tOwner owner = optionalOwner.orElseThrow(() -> new IllegalArgumentException(\n\t\t\t\t\"Owner not found with id: \" + ownerId + \". Please ensure the ID is correct \"));\n\t\treturn owner;\n\t}"
+  },
+  {
+    "name": "findPet",
+    "body": "{\n\n\t\tif (petId == null) {\n\t\t\treturn new Pet();\n\t\t}\n\n\t\tOptional<Owner> optionalOwner = this.owners.findById(ownerId);\n\t\tOwner owner = optionalOwner.orElseThrow(() -> new IllegalArgumentException(\n\t\t\t\t\"Owner not found with id: \" + ownerId + \". Please ensure the ID is correct \"));\n\t\treturn owner.getPet(petId);\n\t}"
+  },
+  {
+    "name": "initOwnerBinder",
+    "body": "{\n\t\tdataBinder.setDisallowedFields(\"id\");\n\t}"
+  },
+  {
+    "name": "initPetBinder",
+    "body": "{\n\t\tdataBinder.setValidator(new PetValidator());\n\t}"
+  },
+  {
+    "name": "initCreationForm",
+    "body": "{\n\t\tPet pet = new Pet();\n\t\towner.addPet(pet);\n\t\treturn VIEWS_PETS_CREATE_OR_UPDATE_FORM;\n\t}"
+  },
+  {
+    "name": "processCreationForm",
+    "body": "{\n\n\t\tif (StringUtils.hasText(pet.getName()) && pet.isNew() && owner.getPet(pet.getName(), true) != null)\n\t\t\tresult.rejectValue(\"name\", \"duplicate\", \"already exists\");\n\n\t\tLocalDate currentDate = LocalDate.now();\n\t\tif (pet.getBirthDate() != null && pet.getBirthDate().isAfter(currentDate)) {\n\t\t\tresult.rejectValue(\"birthDate\", \"typeMismatch.birthDate\");\n\t\t}\n\n\t\tif (result.hasErrors()) {\n\t\t\treturn VIEWS_PETS_CREATE_OR_UPDATE_FORM;\n\t\t}\n\n\t\towner.addPet(pet);\n\t\tthis.owners.save(owner);\n\t\tredirectAttributes.addFlashAttribute(\"message\", \"New Pet has been Added\");\n\t\treturn \"redirect:/owners/{ownerId}\";\n\t}"
+  },
+  {
+    "name": "initUpdateForm",
+    "body": "{\n\t\treturn VIEWS_PETS_CREATE_OR_UPDATE_FORM;\n\t}"
+  },
+  {
+    "name": "processUpdateForm",
+    "body": "{\n\n\t\tString petName = pet.getName();\n\n\t\t// checking if the pet name already exists for the owner\n\t\tif (StringUtils.hasText(petName)) {\n\t\t\tPet existingPet = owner.getPet(petName, false);\n\t\t\tif (existingPet != null && !Objects.equals(existingPet.getId(), pet.getId())) {\n\t\t\t\tresult.rejectValue(\"name\", \"duplicate\", \"already exists\");\n\t\t\t}\n\t\t}\n\n\t\tLocalDate currentDate = LocalDate.now();\n\t\tif (pet.getBirthDate() != null && pet.getBirthDate().isAfter(currentDate)) {\n\t\t\tresult.rejectValue(\"birthDate\", \"typeMismatch.birthDate\");\n\t\t}\n\n\t\tif (result.hasErrors()) {\n\t\t\treturn VIEWS_PETS_CREATE_OR_UPDATE_FORM;\n\t\t}\n\n\t\tupdatePetDetails(owner, pet);\n\t\tredirectAttributes.addFlashAttribute(\"message\", \"Pet details has been edited\");\n\t\treturn \"redirect:/owners/{ownerId}\";\n\t}"
+  },
+  {
+    "name": "updatePetDetails",
+    "body": "{\n\t\tInteger id = pet.getId();\n\t\tAssert.state(id != null, \"'pet.getId()' must not be null\");\n\t\tPet existingPet = owner.getPet(id);\n\t\tif (existingPet != null) {\n\t\t\t// Update existing pet's properties\n\t\t\texistingPet.setName(pet.getName());\n\t\t\texistingPet.setBirthDate(pet.getBirthDate());\n\t\t\texistingPet.setType(pet.getType());\n\t\t}\n\t\telse {\n\t\t\towner.addPet(pet);\n\t\t}\n\t\tthis.owners.save(owner);\n\t}"
+  },
+  {
+    "name": "PetTypeFormatter",
+    "body": "{\n\t\tthis.types = types;\n\t}"
+  },
+  {
+    "name": "print",
+    "body": "{\n\t\tString name = petType.getName();\n\t\treturn (name != null) ? name : \"<null>\";\n\t}"
+  },
+  {
+    "name": "parse",
+    "body": "{\n\t\tCollection<PetType> findPetTypes = this.types.findPetTypes();\n\t\tfor (PetType type : findPetTypes) {\n\t\t\tif (Objects.equals(type.getName(), text)) {\n\t\t\t\treturn type;\n\t\t\t}\n\t\t}\n\t\tthrow new ParseException(\"type not found: \" + text, 0);\n\t}"
+  },
+  {
+    "name": "setBirthDate",
+    "body": "{\n\t\tthis.birthDate = birthDate;\n\t}"
+  },
+  {
+    "name": "getBirthDate",
+    "body": "{\n\t\treturn this.birthDate;\n\t}"
+  },
+  {
+    "name": "getType",
+    "body": "{\n\t\treturn this.type;\n\t}"
+  },
+  {
+    "name": "setType",
+    "body": "{\n\t\tthis.type = type;\n\t}"
+  },
+  {
+    "name": "getVisits",
+    "body": "{\n\t\treturn this.visits;\n\t}"
+  },
+  {
+    "name": "addVisit",
+    "body": "{\n\t\tgetVisits().add(visit);\n\t}"
+  },
+  {
+    "name": "validate",
+    "body": "{\n\t\tPet pet = (Pet) obj;\n\t\tString name = pet.getName();\n\t\t// name validation\n\t\tif (!StringUtils.hasText(name)) {\n\t\t\terrors.rejectValue(\"name\", REQUIRED, REQUIRED);\n\t\t}\n\n\t\t// type validation\n\t\tif (pet.isNew() && pet.getType() == null) {\n\t\t\terrors.rejectValue(\"type\", REQUIRED, REQUIRED);\n\t\t}\n\n\t\t// birth date validation\n\t\tif (pet.getBirthDate() == null) {\n\t\t\terrors.rejectValue(\"birthDate\", REQUIRED, REQUIRED);\n\t\t}\n\t}"
+  },
+  {
+    "name": "supports",
+    "body": "{\n\t\treturn Pet.class.isAssignableFrom(clazz);\n\t}"
+  },
+  {
+    "name": "Visit",
+    "body": "{\n\t\tthis.date = LocalDate.now();\n\t}"
+  },
+  {
+    "name": "getDate",
+    "body": "{\n\t\treturn this.date;\n\t}"
+  },
+  {
+    "name": "setDate",
+    "body": "{\n\t\tthis.date = date;\n\t}"
+  },
+  {
+    "name": "getDescription",
+    "body": "{\n\t\treturn this.description;\n\t}"
+  },
+  {
+    "name": "setDescription",
+    "body": "{\n\t\tthis.description = description;\n\t}"
+  },
+  {
+    "name": "OwnerController",
+    "body": "{\n\t\tthis.owners = owners;\n\t}"
+  },
+  {
+    "name": "setAllowedFields",
+    "body": "{\n\t\tdataBinder.setDisallowedFields(\"id\");\n\t}"
+  },
+  {
+    "name": "findOwner",
+    "body": "{\n\t\treturn ownerId == null ? new Owner()\n\t\t\t\t: this.owners.findById(ownerId)\n\t\t\t\t\t.orElseThrow(() -> new IllegalArgumentException(\"Owner not found with id: \" + ownerId\n\t\t\t\t\t\t\t+ \". Please ensure the ID is correct \" + \"and the owner exists in the database.\"));\n\t}"
+  },
+  {
+    "name": "initCreationForm",
+    "body": "{\n\t\treturn VIEWS_OWNER_CREATE_OR_UPDATE_FORM;\n\t}"
+  },
+  {
+    "name": "processCreationForm",
+    "body": "{\n\t\tif (result.hasErrors()) {\n\t\t\tredirectAttributes.addFlashAttribute(\"error\", \"There was an error in creating the owner.\");\n\t\t\treturn VIEWS_OWNER_CREATE_OR_UPDATE_FORM;\n\t\t}\n\n\t\tthis.owners.save(owner);\n\t\tredirectAttributes.addFlashAttribute(\"message\", \"New Owner Created\");\n\t\treturn \"redirect:/owners/\" + owner.getId();\n\t}"
+  },
+  {
+    "name": "initFindForm",
+    "body": "{\n\t\treturn \"owners/findOwners\";\n\t}"
+  },
+  {
+    "name": "processFindForm",
+    "body": "{\n\t\t// allow parameterless GET request for /owners to return all records\n\t\tString lastName = owner.getLastName();\n\t\tif (lastName == null) {\n\t\t\tlastName = \"\"; // empty string signifies broadest possible search\n\t\t}\n\n\t\t// find owners by last name\n\t\tPage<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);\n\t\tif (ownersResults.isEmpty()) {\n\t\t\t// no owners found\n\t\t\tresult.rejectValue(\"lastName\", \"notFound\", \"not found\");\n\t\t\treturn \"owners/findOwners\";\n\t\t}\n\n\t\tif (ownersResults.getTotalElements() == 1) {\n\t\t\t// 1 owner found\n\t\t\towner = ownersResults.iterator().next();\n\t\t\treturn \"redirect:/owners/\" + owner.getId();\n\t\t}\n\n\t\t// multiple owners found\n\t\treturn addPaginationModel(page, model, ownersResults);\n\t}"
+  },
+  {
+    "name": "addPaginationModel",
+    "body": "{\n\t\tList<Owner> listOwners = paginated.getContent();\n\t\tmodel.addAttribute(\"currentPage\", page);\n\t\tmodel.addAttribute(\"totalPages\", paginated.getTotalPages());\n\t\tmodel.addAttribute(\"totalItems\", paginated.getTotalElements());\n\t\tmodel.addAttribute(\"listOwners\", listOwners);\n\t\treturn \"owners/ownersList\";\n\t}"
+  },
+  {
+    "name": "findPaginatedForOwnersLastName",
+    "body": "{\n\t\tint pageSize = 5;\n\t\tPageable pageable = PageRequest.of(page - 1, pageSize);\n\t\treturn owners.findByLastNameStartingWith(lastname, pageable);\n\t}"
+  },
+  {
+    "name": "initUpdateOwnerForm",
+    "body": "{\n\t\treturn VIEWS_OWNER_CREATE_OR_UPDATE_FORM;\n\t}"
+  },
+  {
+    "name": "processUpdateOwnerForm",
+    "body": "{\n\t\tif (result.hasErrors()) {\n\t\t\tredirectAttributes.addFlashAttribute(\"error\", \"There was an error in updating the owner.\");\n\t\t\treturn VIEWS_OWNER_CREATE_OR_UPDATE_FORM;\n\t\t}\n\n\t\tif (!Objects.equals(owner.getId(), ownerId)) {\n\t\t\tresult.rejectValue(\"id\", \"mismatch\", \"The owner ID in the form does not match the URL.\");\n\t\t\tredirectAttributes.addFlashAttribute(\"error\", \"Owner ID mismatch. Please try again.\");\n\t\t\treturn \"redirect:/owners/{ownerId}/edit\";\n\t\t}\n\n\t\towner.setId(ownerId);\n\t\tthis.owners.save(owner);\n\t\tredirectAttributes.addFlashAttribute(\"message\", \"Owner Values Updated\");\n\t\treturn \"redirect:/owners/{ownerId}\";\n\t}"
+  },
+  {
+    "name": "showOwner",
+    "body": "{\n\t\tModelAndView mav = new ModelAndView(\"owners/ownerDetails\");\n\t\tOptional<Owner> optionalOwner = this.owners.findById(ownerId);\n\t\tOwner owner = optionalOwner.orElseThrow(() -> new IllegalArgumentException(\n\t\t\t\t\"Owner not found with id: \" + ownerId + \". Please ensure the ID is correct \"));\n\t\tmav.addObject(owner);\n\t\treturn mav;\n\t}"
+  },
+  {
+    "name": "findPetTypes"
+  },
+  {
+    "name": "VisitController",
+    "body": "{\n\t\tthis.owners = owners;\n\t}"
+  },
+  {
+    "name": "setAllowedFields",
+    "body": "{\n\t\tdataBinder.setDisallowedFields(\"id\");\n\t}"
+  },
+  {
+    "name": "loadPetWithVisit",
+    "body": "{\n\t\tOptional<Owner> optionalOwner = owners.findById(ownerId);\n\t\tOwner owner = optionalOwner.orElseThrow(() -> new IllegalArgumentException(\n\t\t\t\t\"Owner not found with id: \" + ownerId + \". Please ensure the ID is correct \"));\n\n\t\tPet pet = owner.getPet(petId);\n\t\tif (pet == null) {\n\t\t\tthrow new IllegalArgumentException(\n\t\t\t\t\t\"Pet with id \" + petId + \" not found for owner with id \" + ownerId + \".\");\n\t\t}\n\t\tmodel.put(\"pet\", pet);\n\t\tmodel.put(\"owner\", owner);\n\n\t\tVisit visit = new Visit();\n\t\tpet.addVisit(visit);\n\t\treturn visit;\n\t}"
+  },
+  {
+    "name": "initNewVisitForm",
+    "body": "{\n\t\treturn \"pets/createOrUpdateVisitForm\";\n\t}"
+  },
+  {
+    "name": "processNewVisitForm",
+    "body": "{\n\t\tif (result.hasErrors()) {\n\t\t\treturn \"pets/createOrUpdateVisitForm\";\n\t\t}\n\n\t\towner.addVisit(petId, visit);\n\t\tthis.owners.save(owner);\n\t\tredirectAttributes.addFlashAttribute(\"message\", \"Your visit has been booked\");\n\t\treturn \"redirect:/owners/{ownerId}\";\n\t}"
+  },
+  {
+    "name": "triggerException",
+    "body": "{\n\t\tthrow new RuntimeException(\n\t\t\t\t\"Expected: controller used to showcase what \" + \"happens when an exception is thrown\");\n\t}"
+  },
+  {
+    "name": "getAddress",
+    "body": "{\n\t\treturn this.address;\n\t}"
+  },
+  {
+    "name": "setAddress",
+    "body": "{\n\t\tthis.address = address;\n\t}"
+  },
+  {
+    "name": "getCity",
+    "body": "{\n\t\treturn this.city;\n\t}"
+  },
+  {
+    "name": "setCity",
+    "body": "{\n\t\tthis.city = city;\n\t}"
+  },
+  {
+    "name": "getTelephone",
+    "body": "{\n\t\treturn this.telephone;\n\t}"
+  },
+  {
+    "name": "setTelephone",
+    "body": "{\n\t\tthis.telephone = telephone;\n\t}"
+  },
+  {
+    "name": "getPets",
+    "body": "{\n\t\treturn this.pets;\n\t}"
+  },
+  {
+    "name": "addPet",
+    "body": "{\n\t\tif (pet.isNew()) {\n\t\t\tgetPets().add(pet);\n\t\t}\n\t}"
+  },
+  {
+    "name": "getPet",
+    "body": "{\n\t\treturn getPet(name, false);\n\t}"
+  },
+  {
+    "name": "getPet",
+    "body": "{\n\t\tfor (Pet pet : getPets()) {\n\t\t\tif (!pet.isNew()) {\n\t\t\t\tInteger compId = pet.getId();\n\t\t\t\tif (Objects.equals(compId, id)) {\n\t\t\t\t\treturn pet;\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\treturn null;\n\t}"
+  },
+  {
+    "name": "getPet",
+    "body": "{\n\t\tfor (Pet pet : getPets()) {\n\t\t\tString compName = pet.getName();\n\t\t\tif (compName != null && compName.equalsIgnoreCase(name)) {\n\t\t\t\tif (!ignoreNew || !pet.isNew()) {\n\t\t\t\t\treturn pet;\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\treturn null;\n\t}"
+  },
+  {
+    "name": "toString",
+    "body": "{\n\t\treturn new ToStringCreator(this).append(\"id\", this.getId())\n\t\t\t.append(\"new\", this.isNew())\n\t\t\t.append(\"lastName\", this.getLastName())\n\t\t\t.append(\"firstName\", this.getFirstName())\n\t\t\t.append(\"address\", this.address)\n\t\t\t.append(\"city\", this.city)\n\t\t\t.append(\"telephone\", this.telephone)\n\t\t\t.toString();\n\t}"
+  },
+  {
+    "name": "addVisit",
+    "body": "{\n\n\t\tAssert.notNull(petId, \"Pet identifier must not be null!\");\n\t\tAssert.notNull(visit, \"Visit must not be null!\");\n\n\t\tPet pet = getPet(petId);\n\n\t\tAssert.notNull(pet, \"Invalid Pet identifier!\");\n\n\t\tpet.addVisit(visit);\n\t}"
+  },
+  {
+    "name": "localeResolver",
+    "body": "{\n\t\tSessionLocaleResolver resolver = new SessionLocaleResolver();\n\t\tresolver.setDefaultLocale(Locale.ENGLISH);\n\t\treturn resolver;\n\t}"
+  },
+  {
+    "name": "localeChangeInterceptor",
+    "body": "{\n\t\tLocaleChangeInterceptor interceptor = new LocaleChangeInterceptor();\n\t\tinterceptor.setParamName(\"lang\");\n\t\treturn interceptor;\n\t}"
+  },
+  {
+    "name": "addInterceptors",
+    "body": "{\n\t\tregistry.addInterceptor(localeChangeInterceptor());\n\t}"
+  },
+  {
+    "name": "petclinicCacheConfigurationCustomizer",
+    "body": "{\n\t\treturn cm -> cm.createCache(\"vets\", cacheConfiguration());\n\t}"
+  },
+  {
+    "name": "cacheConfiguration",
+    "body": "{\n\t\treturn new MutableConfiguration<>().setStatisticsEnabled(true);\n\t}"
+  },
+  {
+    "name": "welcome",
+    "body": "{\n\t\treturn \"welcome\";\n\t}"
+  },
+  {
+    "name": "onApplicationEvent",
+    "body": "{\n\t\t\tif (isFirstRun) {\n\t\t\t\tenvironment = event.getApplicationContext().getEnvironment();\n\t\t\t\tprintProperties();\n\t\t\t}\n\t\t\tisFirstRun = false;\n\t\t}"
+  },
+  {
+    "name": "printProperties",
+    "body": "{\n\t\t\tfor (EnumerablePropertySource<?> source : findPropertiesPropertySources()) {\n\t\t\t\tlog.info(\"PropertySource: \" + source.getName());\n\t\t\t\tString[] names = source.getPropertyNames();\n\t\t\t\tArrays.sort(names);\n\t\t\t\tfor (String name : names) {\n\t\t\t\t\tString resolved = environment.getProperty(name);\n\n\t\t\t\t\tassertNotNull(resolved, \"resolved environment property: \" + name + \" is null.\");\n\n\t\t\t\t\tObject sourceProperty = source.getProperty(name);\n\n\t\t\t\t\tassertNotNull(sourceProperty, \"source property was expecting an object but is null.\");\n\n\t\t\t\t\tassertNotNull(sourceProperty.toString(), \"source property toString() returned null.\");\n\n\t\t\t\t\tString value = sourceProperty.toString();\n\t\t\t\t\tif (resolved.equals(value)) {\n\t\t\t\t\t\tlog.info(name + \"=\" + resolved);\n\t\t\t\t\t}\n\t\t\t\t\telse {\n\t\t\t\t\t\tlog.info(name + \"=\" + value + \" OVERRIDDEN to \" + resolved);\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+  },
+  {
+    "name": "findPropertiesPropertySources",
+    "body": "{\n\t\t\tList<EnumerablePropertySource<?>> sources = new LinkedList<>();\n\t\t\tfor (PropertySource<?> source : environment.getPropertySources()) {\n\t\t\t\tif (source instanceof EnumerablePropertySource enumerable) {\n\t\t\t\t\tsources.add(enumerable);\n\t\t\t\t}\n\t\t\t}\n\t\t\treturn sources;\n\t\t}"
+  },
+  {
+    "name": "available",
+    "body": "{\n\t\tassumeTrue(DockerClientFactory.instance().isDockerAvailable(), \"Docker not available\");\n\t}"
+  },
+  {
+    "name": "main",
+    "body": "{\n\t\tnew SpringApplicationBuilder(PetClinicApplication.class) //\n\t\t\t.profiles(\"postgres\") //\n\t\t\t.properties( //\n\t\t\t\t\t\"spring.docker.compose.start.arguments=postgres\" //\n\t\t\t) //\n\t\t\t.listeners(new PropertiesLogger()) //\n\t\t\t.run(args);\n\t}"
+  },
+  {
+    "name": "testFindAll",
+    "body": "{\n\t\tvets.findAll();\n\t\tvets.findAll(); // served from cache\n\t}"
+  },
+  {
+    "name": "testOwnerDetails",
+    "body": "{\n\t\tRestTemplate template = builder.rootUri(\"http://localhost:\" + port).build();\n\t\tResponseEntity<String> result = template.exchange(RequestEntity.get(\"/owners/1\").build(), String.class);\n\t\tassertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);\n\t}"
+  },
+  {
+    "name": "container",
+    "body": "{\n\t\treturn new MySQLContainer<>(DockerImageName.parse(\"mysql:9.2\"));\n\t}"
+  },
+  {
+    "name": "main",
+    "body": "{\n\t\tSpringApplication.run(PetClinicApplication.class, \"--spring.profiles.active=mysql\",\n\t\t\t\t\"--spring.docker.compose.enabled=false\");\n\t}"
+  },
+  {
+    "name": "testFindAll",
+    "body": "{\n\t\tvets.findAll();\n\t\tvets.findAll(); // served from cache\n\t}"
+  },
+  {
+    "name": "testOwnerDetails",
+    "body": "{\n\t\tRestTemplate template = builder.rootUri(\"http://localhost:\" + port).build();\n\t\tResponseEntity<String> result = template.exchange(RequestEntity.get(\"/owners/1\").build(), String.class);\n\t\tassertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);\n\t}"
+  },
+  {
+    "name": "testFindAll",
+    "body": "{\n\t\tvets.findAll();\n\t\tvets.findAll(); // served from cache\n\t}"
+  },
+  {
+    "name": "testOwnerDetails",
+    "body": "{\n\t\tRestTemplate template = builder.rootUri(\"http://localhost:\" + port).build();\n\t\tResponseEntity<String> result = template.exchange(RequestEntity.get(\"/owners/1\").build(), String.class);\n\t\tassertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);\n\t}"
+  },
+  {
+    "name": "main",
+    "body": "{\n\t\tSpringApplication.run(PetClinicApplication.class, args);\n\t}"
+  },
+  {
+    "name": "james",
+    "body": "{\n\t\tVet james = new Vet();\n\t\tjames.setFirstName(\"James\");\n\t\tjames.setLastName(\"Carter\");\n\t\tjames.setId(1);\n\t\treturn james;\n\t}"
+  },
+  {
+    "name": "helen",
+    "body": "{\n\t\tVet helen = new Vet();\n\t\thelen.setFirstName(\"Helen\");\n\t\thelen.setLastName(\"Leary\");\n\t\thelen.setId(2);\n\t\tSpecialty radiology = new Specialty();\n\t\tradiology.setId(1);\n\t\tradiology.setName(\"radiology\");\n\t\thelen.addSpecialty(radiology);\n\t\treturn helen;\n\t}"
+  },
+  {
+    "name": "setup",
+    "body": "{\n\t\tgiven(this.vets.findAll()).willReturn(Lists.newArrayList(james(), helen()));\n\t\tgiven(this.vets.findAll(any(Pageable.class)))\n\t\t\t.willReturn(new PageImpl<Vet>(Lists.newArrayList(james(), helen())));\n\n\t}"
+  },
+  {
+    "name": "testShowVetListHtml",
+    "body": "{\n\n\t\tmockMvc.perform(MockMvcRequestBuilders.get(\"/vets.html?page=1\"))\n\t\t\t.andExpect(status().isOk())\n\t\t\t.andExpect(model().attributeExists(\"listVets\"))\n\t\t\t.andExpect(view().name(\"vets/vetList\"));\n\n\t}"
+  },
+  {
+    "name": "testShowResourcesVetList",
+    "body": "{\n\t\tResultActions actions = mockMvc.perform(get(\"/vets\").accept(MediaType.APPLICATION_JSON))\n\t\t\t.andExpect(status().isOk());\n\t\tactions.andExpect(content().contentType(MediaType.APPLICATION_JSON))\n\t\t\t.andExpect(jsonPath(\"$.vetList[0].id\").value(1));\n\t}"
+  },
+  {
+    "name": "createValidator",
+    "body": "{\n\t\tLocalValidatorFactoryBean localValidatorFactoryBean = new LocalValidatorFactoryBean();\n\t\tlocalValidatorFactoryBean.afterPropertiesSet();\n\t\treturn localValidatorFactoryBean;\n\t}"
+  },
+  {
+    "name": "shouldNotValidateWhenFirstNameEmpty",
+    "body": "{\n\n\t\tLocaleContextHolder.setLocale(Locale.ENGLISH);\n\t\tPerson person = new Person();\n\t\tperson.setFirstName(\"\");\n\t\tperson.setLastName(\"smith\");\n\n\t\tValidator validator = createValidator();\n\t\tSet<ConstraintViolation<Person>> constraintViolations = validator.validate(person);\n\n\t\tassertThat(constraintViolations).hasSize(1);\n\t\tConstraintViolation<Person> violation = constraintViolations.iterator().next();\n\t\tassertThat(violation.getPropertyPath()).hasToString(\"firstName\");\n\t\tassertThat(violation.getMessage()).isEqualTo(\"must not be blank\");\n\t}"
+  },
+  {
+    "name": "testSerialization",
+    "body": "{\n\t\tVet vet = new Vet();\n\t\tvet.setFirstName(\"Zaphod\");\n\t\tvet.setLastName(\"Beeblebrox\");\n\t\tvet.setId(123);\n\t\t@SuppressWarnings(\"deprecation\")\n\t\tVet other = (Vet) SerializationUtils.deserialize(SerializationUtils.serialize(vet));\n\t\tassertThat(other.getFirstName()).isEqualTo(vet.getFirstName());\n\t\tassertThat(other.getLastName()).isEqualTo(vet.getLastName());\n\t\tassertThat(other.getId()).isEqualTo(vet.getId());\n\t}"
+  }
+]

@@ -7,9 +7,13 @@ import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.platform.backend.observation.Observation
 import com.intellij.openapi.project.waitForSmartMode
 
+/**
+ * Project startup activity: waits for configuration and smart mode, then writes `methods.json`.
+ * Work runs off the UI thread and delegates to MethodExtractor and JsonExporter.
+ */
 class DumpMethodsOnOpen : ProjectActivity {
+    /** Waits for readiness and dumps all Java methods to `<projectRoot>/methods.json`. */
     override suspend fun execute(project: Project) {
-        // Wait for indexing and configuration to complete
         Observation.awaitConfiguration(project)
         project.waitForSmartMode()
 

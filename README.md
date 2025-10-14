@@ -1,52 +1,114 @@
-# intellij-method-extractor
-
-![Build](https://github.com/Alrax/intellij-method-extractor/workflows/Build/badge.svg)
-[![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-
-## Template ToDo list
-- [x] Create a new [IntelliJ Platform Plugin Template][template] project.
-- [ ] Get familiar with the [template documentation][template].
-- [ ] Adjust the [pluginGroup](./gradle.properties) and [pluginName](./gradle.properties), as well as the [id](./src/main/resources/META-INF/plugin.xml) and [sources package](./src/main/kotlin).
-- [ ] Adjust the plugin description in `README` (see [Tips][docs:plugin-description])
-- [ ] Review the [Legal Agreements](https://plugins.jetbrains.com/docs/marketplace/legal-agreements.html?from=IJPluginTemplate).
-- [ ] [Publish a plugin manually](https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate) for the first time.
-- [ ] Set the `MARKETPLACE_ID` in the above README badges. You can obtain it once the plugin is published to JetBrains Marketplace.
-- [ ] Set the [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html?from=IJPluginTemplate) related [secrets](https://github.com/JetBrains/intellij-platform-plugin-template#environment-variables).
-- [ ] Set the [Deployment Token](https://plugins.jetbrains.com/docs/marketplace/plugin-upload.html?from=IJPluginTemplate).
-- [ ] Click the <kbd>Watch</kbd> button on the top of the [IntelliJ Platform Plugin Template][template] to be notified about releases containing new features and fixes.
-- [ ] Configure the [CODECOV_TOKEN](https://docs.codecov.com/docs/quick-start) secret for automated test coverage reports on PRs
+# IntelliJ Method Extractor
 
 <!-- Plugin description -->
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
-
-This specific section is a source for the [plugin.xml](/src/main/resources/META-INF/plugin.xml) file which will be extracted by the [Gradle](/build.gradle.kts) during the build process.
-
-To keep everything working, do not remove `<!-- ... -->` sections. 
+Extracts names and bodies of Java methods in the open project and writes them into a single JSON file (methods.json). Runs automatically after project opens and indexing completes, and also provides a Tools menu action to dump on demand.
 <!-- Plugin description end -->
 
-## Installation
+## Overview
+This IntelliJ IDEA plugin scans Java source files using PSI and file-based indexes and produces a JSON snapshot of all declared methods:
+- On project open: waits until the IDE finishes configuring and indices are ready, then writes methods.json to the project root.
+- On demand: Tools > Dump Methods to JSON action to re-generate the snapshot after changes.
 
-- Using the IDE built-in plugin system:
-  
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "intellij-method-extractor"</kbd> >
-  <kbd>Install</kbd>
-  
-- Using JetBrains Marketplace:
+The JSON contains a list of objects with two keys: "name" and "body". Methods without a body (e.g., abstract/interface methods) will have a null body.
 
-  Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID) and install it by clicking the <kbd>Install to ...</kbd> button in case your IDE is running.
+## How it fulfills the task instructions
+- File-based indexes: Uses FileTypeIndex over GlobalSearchScope.projectScope(project) to enumerate Java files without manual project traversal.
+- PSI parsing: Walks PsiJavaFile classes and PsiMethod declarations via JavaRecursiveElementVisitor to extract method name and body text.
+- ProjectActivity on open: Registers a ProjectActivity that triggers once a project opens.
+- Wait for indexing: Calls Observation.awaitConfiguration(project) and project.waitForSmartMode() before scanning.
+- JSON library: Uses Gson (com.google.code.gson:gson:2.11.0) to serialize to JSON with pretty-printing.
+- Output format: Produces a single methods.json in the project root with [{"name": string, "body": string|null}, ...].
+- Bonus action: Adds a Tools menu action "Dump Methods to JSON" to re-run extraction; updating a method and invoking the action updates the corresponding entry in JSON.
 
-  You can also download the [latest release](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID/versions) from JetBrains Marketplace and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+## Architecture and key files
+- services/MethodExtractor.kt
+  - Provides MethodExtractor.collectAll(project): List<MethodInfo>.
+  - Inside a ReadAction, enumerates Java VirtualFile entries via FileTypeIndex, resolves to PsiJavaFile, visits classes and collects PsiMethod data.
+  - MethodInfo fields: name (simple method name) and body (trimmed method body text or null).
 
-- Manually:
+- services/JsonExporter.kt
+  - Serializes List<MethodInfo> with Gson (pretty, HTML escaping disabled) and writes to <projectRoot>/methods.json.
+  - Overwrites existing file each time.
 
-  Download the [latest release](https://github.com/Alrax/intellij-method-extractor/releases/latest) and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+- startup/DumpMethodsOnOpen.kt
+  - ProjectActivity that runs on project open.
+  - Suspends until Observation.awaitConfiguration(project) and project.waitForSmartMode() complete, then invokes MethodExtractor and JsonExporter.
 
+- actions/DumpMethodsAction.kt
+  - UI action registered in Tools menu.
+  - Uses DumbService.runWhenSmart to ensure indices are ready, then runs Task.Backgroundable to extract and dump without blocking the UI thread.
 
----
-Plugin based on the [IntelliJ Platform Plugin Template][template].
+- resources/META-INF/plugin.xml
+  - Declares plugin id, name, dependencies (platform, java), the postStartupActivity (DumpMethodsOnOpen), and the action in the Tools menu.
 
-[template]: https://github.com/JetBrains/intellij-platform-plugin-template
-[docs:plugin-description]: https://plugins.jetbrains.com/docs/intellij/plugin-user-experience.html#plugin-description-and-presentation
+## JSON schema
+Each item in methods.json follows:
+- name: string — the simple method name (no class or package qualification)
+- body: string|null — the method body including braces, e.g., "{ return x + y; }"; null for methods without bodies (abstract/interface)
+
+Example (abbreviated):
+[
+  { "name": "add", "body": "{ return x + y; }" },
+  { "name": "toString", "body": "{ return \"...\"; }" },
+  { "name": "save", "body": null }
+]
+
+## Build and run (local)
+Prerequisites:
+- JDK 21
+- Gradle wrapper (included)
+
+Windows (cmd.exe):
+- Build the plugin
+  - gradlew.bat build
+- Run the IDE with the plugin
+  - gradlew.bat runIde
+
+This launches a sandbox IDE with the plugin enabled. Open or create a Java project in this IDE to test behavior.
+
+## Usage
+- Automatic on open
+  - Open a Java project in the runIde sandbox. The plugin waits for project configuration and indexing to finish, then writes methods.json to the project root.
+- Manual dump via action
+  - Tools > Dump Methods to JSON
+  - Re-runs extraction and overwrites methods.json with the latest results (useful after editing methods).
+- Output location
+  - <projectRoot>/methods.json
+
+## Generating JSON for spring-petclinic (example)
+1) Launch the sandbox IDE with the plugin:
+- gradlew.bat runIde
+2) In the sandbox IDE, clone and open https://github.com/spring-projects/spring-petclinic or open an existing checkout.
+3) Wait until indexing completes (progress bar finishes). The plugin will auto-generate methods.json at the project root.
+4) Optionally, make code changes and run Tools > Dump Methods to JSON to refresh the file.
+
+## Implementation details
+Below is a concise explanation of the core classes and their responsibilities, reflecting the inline code comments:
+
+- DumpMethodsAction
+  - Purpose: On-demand trigger to extract methods and write JSON.
+  - Key points: Uses DumbService.runWhenSmart, executes as Task.Backgroundable, delegates to MethodExtractor and JsonExporter.
+
+- MethodExtractor
+  - Purpose: ReadAction-safe scanning of Java files to extract PsiMethod data.
+  - Index usage: FileTypeIndex.getFiles(StdFileTypes.JAVA, GlobalSearchScope.projectScope(project)).
+  - PSI traversal: PsiJavaFile -> JavaRecursiveElementVisitor -> PsiClass.methods.
+  - Output: List<MethodInfo(name, body)).
+
+- JsonExporter
+  - Purpose: Serialize and persist method data.
+  - Behavior: Pretty-printed JSON; overwrites <projectRoot>/methods.json; base path from Project.basePath or presentableUrl.
+
+- DumpMethodsOnOpen
+  - Purpose: Project startup hook to auto-generate methods.json after indexing.
+  - Awaiting readiness: Observation.awaitConfiguration(project) and project.waitForSmartMode().
+
+- plugin.xml
+  - Registers the ProjectActivity and the Tools menu action; depends on platform and Java modules.
+
+## Limitations and notes
+- Scope: Only Java source files (*.java) are scanned; Kotlin and other languages are out of scope.
+- Method identity: Uses only simple method names in JSON; overloaded methods will appear as multiple items with the same name.
+- Bodies: Method body text is captured verbatim (including braces). Abstract/interface methods produce null bodies.
+- Updates: The file updates automatically on project open and when the manual action is used; there’s no continuous watching.
+- Performance: The plugin is slow on large projects due to full scans; optimizations like caching or incremental updates are not implemented.

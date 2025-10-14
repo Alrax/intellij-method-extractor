@@ -12,10 +12,29 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.openapi.fileTypes.StdFileTypes
 import com.intellij.openapi.vfs.VirtualFile
 
+/**
+
+ * - [name]: simple, unqualified method name.
+ * - [body]: full text of the method body including braces, or null if there is no body
+ */
 data class MethodInfo(val name: String, val body: String?)
 
+/**
+ * Scans the IntelliJ project for Java source files and extracts declared methods via PSI.
+ *
+ * - Runs inside a ReadAction to safely access PSI structures.
+ * - Uses FileTypeIndex over GlobalSearchScope.projectScope(project) to enumerate JAVA VirtualFiles quickly
+ *   without loading modules/content roots manually.
+ * - This does not block indexing. For consistent coverage, callers should ensure smart mode beforehand
+ */
 object MethodExtractor {
 
+    /**
+     * Collects [MethodInfo] for all methods declared in Java source files of the given [project].
+     *
+     * - Uses an in-memory list to accumulate results. No threading is used internally.
+     * - Logs a message and skips files that don't resolve to PsiJavaFile (e.g., binary or non-Java).
+     */
     fun collectAll(project: Project): List<MethodInfo> {
         return ReadAction.compute<List<MethodInfo>, RuntimeException> {
             val methods = mutableListOf<MethodInfo>()
@@ -46,6 +65,9 @@ object MethodExtractor {
         }
     }
 
+    /**
+     * Converts a [PsiMethod] into a [MethodInfo].
+     */
     private fun extractMethodInfo(method: PsiMethod): MethodInfo {
         val name = method.name
         val bodyText = method.body?.text?.trim()
